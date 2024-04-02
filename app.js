@@ -3,14 +3,14 @@ const fetch = require('node-fetch');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-
 const { google } = require('googleapis');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID
+const spreadsheetId = process.env.spreadsheet_Id
+console.log(spreadsheetId)
 const key = process.env.KEY_FILE
 
 
@@ -120,7 +120,7 @@ app.get('/updateReelsCache', async (req, res) => {
     const sheets = await authenticateWithGoogleSheets();
 
     const response = await sheets.spreadsheets.values.get({
-      SPREADSHEET_ID,
+      spreadsheetId,
       range,
     });
 
