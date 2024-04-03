@@ -49,13 +49,7 @@ const cacheSchema = new mongoose.Schema({
 const Cache = mongoose.model('Cache', cacheSchema);
 
 
-
 async function fetchAndCacheReelDownloadUrl(instagramUrl) {
-  let cacheEntry = await Cache.findOne({ instagramUrl });
-  if (cacheEntry) {
-    return cacheEntry.downloadUrl;
-  }
-
   const url = `https://instagram-post-reels-stories-downloader.p.rapidapi.com/instagram/?url=${encodeURIComponent(instagramUrl)}`;
   const options = {
     method: 'GET',
@@ -68,18 +62,38 @@ async function fetchAndCacheReelDownloadUrl(instagramUrl) {
   try {
     const response = await fetch(url, options);
     const data = await response.json();
+    console.log(data)
     const downloadUrl = data.result[0].url;
 
-
-    cacheEntry = new Cache({ instagramUrl, downloadUrl });
-    await cacheEntry.save();
-
+    await Cache.findOneAndUpdate({ instagramUrl }, { downloadUrl }, { new: true, upsert: true });
     return downloadUrl;
   } catch (error) {
     console.error(`Failed to fetch download URL for ${instagramUrl}:`, error);
     throw error;
   }
 }
+
+
+app.get('/getVideos', async (req, res) => {
+  try {
+    const sheets = await authenticateWithGoogleSheets();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+    });
+
+    const instagramReelUrls = response.data.values ? response.data.values.flat() : [];
+    await Promise.all(instagramReelUrls.map(url => fetchAndCacheReelDownloadUrl(url)));
+
+
+    const videoUrls = await Cache.find({});
+    res.json(videoUrls);
+  } catch (error) {
+    console.error('Failed to get video URLs:', error);
+    res.status(500).send('Failed to get video URLs');
+  }
+});
+
 
 
 app.get('/video-proxy', async (req, res) => {
@@ -103,15 +117,6 @@ app.get('/video-proxy', async (req, res) => {
 });
 
 
-app.get('/getVideos', async (req, res) => {
-  try {
-    const videoUrls = await Cache.find({});
-    res.json(videoUrls);
-  } catch (error) {
-    console.error('Failed to get video URLs:', error);
-    res.status(500).send('Failed to get video URLs');
-  }
-});
 
 
 
