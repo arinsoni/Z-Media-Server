@@ -17,6 +17,7 @@
     "google-auth-library": "^9.7.0",
     "googleapis": "^134.0.0",
     "mongoose": "^8.2.4",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "openai": "^4.32.1"
   }
 }
