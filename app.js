@@ -250,6 +250,7 @@ app.get('/getVideos', async (req, res) => {
 
 app.get('/video-proxy', async (req, res) => {
   const videoUrl = req.query.url;
+  
   if (!videoUrl) {
     return res.status(400).send("URL is required");
   }
@@ -257,9 +258,13 @@ app.get('/video-proxy', async (req, res) => {
   try {
     const decodedUrl = decodeURIComponent(videoUrl);
     const videoResponse = await fetch(decodedUrl);
+
     if (!videoResponse.ok) {
-      throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+      // Log the error for debugging purposes
+      console.error(`Failed to fetch video: ${videoResponse.statusText}`);
+      return res.json({ message: "Video fetch failed, please skip to the next video" });
     }
+
     res.setHeader('Content-Type', videoResponse.headers.get('Content-Type'));
     videoResponse.body.pipe(res);
   } catch (error) {
