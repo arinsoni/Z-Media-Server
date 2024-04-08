@@ -225,26 +225,39 @@ async function fetchAndCacheReelDownloadUrl(instagramUrl) {
   }
 }
 
-
 app.get('/getVideos', async (req, res) => {
   try {
+    // Authenticate and fetch data from Google Sheets
     const sheets = await authenticateWithGoogleSheets();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range,
     });
-
+    
     const instagramReelUrls = response.data.values ? response.data.values.flat() : [];
+
+    // Fetch current Instagram URLs from MongoDB
+    const currentEntries = await Cache.find({});
+    const currentUrls = currentEntries.map(entry => entry.instagramUrl);
+
+    // Identify URLs to remove: URLs in MongoDB but not in the latest Google Sheets list
+    const urlsToRemove = currentUrls.filter(url => !instagramReelUrls.includes(url));
+
+    // Remove outdated URLs from MongoDB
+    await Promise.all(urlsToRemove.map(url => Cache.deleteOne({ instagramUrl: url })));
+    
+    // Update or cache new and existing URLs as before
     await Promise.all(instagramReelUrls.map(url => fetchAndCacheReelDownloadUrl(url)));
 
-
-    const videoUrls = await Cache.find({});
-    res.json(videoUrls);
+    // Return updated list of video URLs
+    const updatedVideoUrls = await Cache.find({});
+    res.json(updatedVideoUrls);
   } catch (error) {
     console.error('Failed to get video URLs:', error);
     res.status(500).send('Failed to get video URLs');
   }
 });
+
 
 
 
