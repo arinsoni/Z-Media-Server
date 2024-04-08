@@ -130,7 +130,7 @@ async function getGPTres(prompt, param) {
 }
 
 
-async function fetchArticles()  {
+async function fetchArticles() {
   try {
     const sheets = await authenticateWithGoogleSheets();
     const response = await sheets.spreadsheets.values.get({
@@ -140,16 +140,23 @@ async function fetchArticles()  {
 
     const articleUrls = response.data.values ? response.data.values.flat() : [];
 
+    const currentEntries = await Article.find({});
+    const currentUrls = currentEntries.map(entry => entry.articleUrl);
+
+    const urlsToRemove = currentUrls.filter(url => !articleUrls.includes(url));
+
+    await Promise.all(urlsToRemove.map(url => Article.deleteOne({ articleUrl: url })));
+
     await Promise.all(articleUrls.map(url => fetchAndSaveArticleContent(url)));
 
-
-    const articles = await Article.find({});
-   
-    return articles
+    const updatedArticles = await Article.find({});
+    return updatedArticles;
   } catch (error) {
     console.error('Failed to get article content:', error);
+    throw error; 
   }
 }
+
 
 function cleanArticleContent(content) {
   const cleanedContent = content
@@ -227,7 +234,6 @@ async function fetchAndCacheReelDownloadUrl(instagramUrl) {
 
 app.get('/getVideos', async (req, res) => {
   try {
-    // Authenticate and fetch data from Google Sheets
     const sheets = await authenticateWithGoogleSheets();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -236,20 +242,15 @@ app.get('/getVideos', async (req, res) => {
     
     const instagramReelUrls = response.data.values ? response.data.values.flat() : [];
 
-    // Fetch current Instagram URLs from MongoDB
     const currentEntries = await Cache.find({});
     const currentUrls = currentEntries.map(entry => entry.instagramUrl);
 
-    // Identify URLs to remove: URLs in MongoDB but not in the latest Google Sheets list
     const urlsToRemove = currentUrls.filter(url => !instagramReelUrls.includes(url));
 
-    // Remove outdated URLs from MongoDB
     await Promise.all(urlsToRemove.map(url => Cache.deleteOne({ instagramUrl: url })));
     
-    // Update or cache new and existing URLs as before
     await Promise.all(instagramReelUrls.map(url => fetchAndCacheReelDownloadUrl(url)));
 
-    // Return updated list of video URLs
     const updatedVideoUrls = await Cache.find({});
     res.json(updatedVideoUrls);
   } catch (error) {
@@ -273,7 +274,6 @@ app.get('/video-proxy', async (req, res) => {
     const videoResponse = await fetch(decodedUrl);
 
     if (!videoResponse.ok) {
-      // Log the error for debugging purposes
       console.error(`Failed to fetch video: ${videoResponse.statusText}`);
       return res.json({ message: "Video fetch failed, please skip to the next video" });
     }
