@@ -138,16 +138,16 @@ async function fetchArticles() {
       range: articleRange,
     });
 
-    const articleUrls = response.data.values ? response.data.values.flat() : [];
+    const sheetArticleUrls = response.data.values ? response.data.values.flat() : [];
 
-    const currentEntries = await Article.find({});
-    const currentUrls = currentEntries.map(entry => entry.articleUrl);
+    const dbArticles = await Article.find({});
+    const dbArticleUrls = dbArticles.map(article => article.articleUrl);
 
-    const urlsToRemove = currentUrls.filter(url => !articleUrls.includes(url));
+    const urlsToRemove = dbArticleUrls.filter(url => !sheetArticleUrls.includes(url));
 
     await Promise.all(urlsToRemove.map(url => Article.deleteOne({ articleUrl: url })));
 
-    await Promise.all(articleUrls.map(url => fetchAndSaveArticleContent(url)));
+    await Promise.all(sheetArticleUrls.map(url => fetchAndSaveArticleContent(url)));
 
     const updatedArticles = await Article.find({});
     return updatedArticles;
@@ -156,6 +156,17 @@ async function fetchArticles() {
     throw error; 
   }
 }
+
+app.get('/getArticles', async (req, res) => {
+  try {
+    const articles = await fetchArticles();
+    const parsedArticles = await parseArticleContent(articles);
+    res.json(parsedArticles);
+  } catch (error) {
+    console.error('Failed to fetch articles:', error);
+    res.status(500).send('Failed to fetch articles');
+  }
+});
 
 
 function cleanArticleContent(content) {
