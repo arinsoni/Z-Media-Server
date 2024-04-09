@@ -52,8 +52,10 @@ const cacheSchema = new mongoose.Schema({
 
 const articleSchema = new mongoose.Schema({
   articleUrl: { type: String, required: true, unique: true },
-  content: { type: String, required: true } 
+  content: { type: String, required: true },
+  orderIndex: { type: Number, required: true } 
 });
+
 
 const Article = mongoose.model('Article', articleSchema);
 
@@ -94,7 +96,14 @@ async function fetchAndSaveArticleContent(articleUrl) {
     }
 
 
-    await Article.findOneAndUpdate({ articleUrl }, { content: JSON.stringify(content) }, { new: true, upsert: true });
+    await Article.findOneAndUpdate(
+      { articleUrl },
+      { 
+        content: JSON.stringify(content),
+        orderIndex // Save the orderIndex
+      },
+      { new: true, upsert: true }
+    );
     console.log(`Content saved for ${articleUrl}`);
   } catch (error) {
     console.error(`Failed to save article content for ${articleUrl}:`, error);
@@ -142,20 +151,21 @@ async function fetchArticles() {
 
     const dbArticles = await Article.find({});
     const dbArticleUrls = dbArticles.map(article => article.articleUrl);
-
     const urlsToRemove = dbArticleUrls.filter(url => !sheetArticleUrls.includes(url));
-
     await Promise.all(urlsToRemove.map(url => Article.deleteOne({ articleUrl: url })));
 
-    await Promise.all(sheetArticleUrls.map(url => fetchAndSaveArticleContent(url)));
+    await Promise.all(sheetArticleUrls.map((url, index) => 
+      fetchAndSaveArticleContent(url, index) 
+    ));
 
-    const updatedArticles = await Article.find({});
+    const updatedArticles = await Article.find({}).sort('orderIndex');
     return updatedArticles;
   } catch (error) {
     console.error('Failed to get article content:', error);
     throw error; 
   }
 }
+
 
 app.get('/getArticles', async (req, res) => {
   try {
